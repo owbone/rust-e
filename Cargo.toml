@@ -1,0 +1,9 @@
+[package]
+
+name = "rust-e"
+version = "0.0.1"
+authors = ["Oliver Bone <owbone@gmail.com>"]
+
+[dependencies]
+
+getopts = "0.2.4"
