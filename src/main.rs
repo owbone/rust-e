@@ -45,21 +45,21 @@ fn main() {
         Ok(m) => { m }
         Err(e) => {
             println!("Invalid address: {}", e);
-            return usage(program.as_slice(), opts);
+            return usage(&program[..], opts);
         }
     };
 
     let hostname = match matches.opt_str("s") {
         Some(a) => { a }
-        None => { return usage(program.as_slice(), opts); }
+        None => { return usage(&program[..], opts); }
     };
 
     let port = if let Some(p) = matches.opt_str("p") {
-        match u16::from_str(p.as_slice()) {
+        match u16::from_str(&p[..]) {
             Ok(p) => { p }
             Err(e) => {
                 println!("Invalid port: {}", e);
-                return usage(program.as_slice(), opts);
+                return usage(&program[..], opts);
             }
         }
     }
@@ -69,7 +69,7 @@ fn main() {
 
     println!("Connecting to {}:{}...", hostname, port);
 
-    match connect(hostname.as_slice(), port) {
+    match connect(&hostname[..], port) {
         Ok(stream) => {
             println!("Connected.");
 
@@ -78,7 +78,10 @@ fn main() {
                     Ok(line) => {
                         println!("{}", line);
                     }
-                    Err(e) => { break; }
+                    Err(e) => { 
+                        println!("Read error: {}", e);
+                        break;
+                    }
                 }
             }
         }
@@ -97,7 +100,7 @@ fn usage(program: &str, opts: Options) {
 fn connect(hostname: &str, port: u16) -> Result<BufStream<TcpStream>, IoError> {
     let address = format!("{}:{}", hostname, port);
 
-    match TcpStream::connect(address.as_slice()) {
+    match TcpStream::connect(&address[..]) {
         Ok(stream) => { return Ok(BufStream::new(stream)); }
         Err(e) => { return Err(e); }
     };
