@@ -24,49 +24,81 @@ extern crate getopts;
 
 use getopts::Options;
 use std::env;
+use std::iter::FromIterator;
+use std::io::prelude::*;
+use std::io::BufStream;
+use std::io::Error as IoError;
 use std::str::FromStr;
 use std::net::TcpStream;
-use std::u8;
 
-static DEFAULT_PORT_NUMBER: u8 = 6667;
+static DEFAULT_PORT_NUMBER: u16 = 6667;
 
 fn main() {
     let mut opts = Options::new();
     opts.optopt("s", "server", "Address", "ADDRESS");
     opts.optopt("p", "port", "Port", "PORT");
 
-    let matches = match opts.parse(env::args()) {
+    let args = Vec::from_iter(env::args());
+    let program = args[0].clone();
+
+    let matches = match opts.parse(args) {
         Ok(m) => { m }
-        Err(e) => { panic!(e.to_string()); }
+        Err(e) => {
+            println!("Invalid address: {}", e);
+            return usage(program.as_slice(), opts);
+        }
     };
 
     let hostname = match matches.opt_str("s") {
         Some(a) => { a }
-        None => { panic!("Server address is required!"); }
+        None => { return usage(program.as_slice(), opts); }
     };
 
     let port = if let Some(p) = matches.opt_str("p") {
-        match u8::from_str(p.as_slice()) {
+        match u16::from_str(p.as_slice()) {
             Ok(p) => { p }
-            Err(e) => { panic!(format!("Invalid port number: {}", p)); }
+            Err(e) => {
+                println!("Invalid port: {}", e);
+                return usage(program.as_slice(), opts);
+            }
         }
     }
     else {
         DEFAULT_PORT_NUMBER
     };
 
-    if !connect(hostname.as_slice(), port) {
-        println!("Failed to connect to server!");
+    println!("Connecting to {}:{}...", hostname, port);
+
+    match connect(hostname.as_slice(), port) {
+        Ok(stream) => {
+            println!("Connected.");
+
+            for line in stream.lines() {
+                match line {
+                    Ok(line) => {
+                        println!("{}", line);
+                    }
+                    Err(e) => { break; }
+                }
+            }
+        }
+        Err(e) => {
+            println!("{}", e);
+            println!("Failed to connect!");
+        }
     }
 }
 
-fn connect(hostname: &str, port: u8) -> bool {
+fn usage(program: &str, opts: Options) {
+    let brief = format!("Usage: {} [options]", program);
+    print!("{}", opts.usage(&brief));
+}
+
+fn connect(hostname: &str, port: u16) -> Result<BufStream<TcpStream>, IoError> {
     let address = format!("{}:{}", hostname, port);
 
-    let mut stream = match TcpStream::connect(address.as_slice()) {
-        Ok(s) => { s }
-        Err(e) => { return false; }
+    match TcpStream::connect(address.as_slice()) {
+        Ok(stream) => { return Ok(BufStream::new(stream)); }
+        Err(e) => { return Err(e); }
     };
-
-    true
 }
