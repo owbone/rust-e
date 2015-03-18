@@ -25,7 +25,6 @@ extern crate getopts;
 use getopts::Options;
 use std::env;
 use std::iter::FromIterator;
-use std::io::prelude::*;
 use std::io::BufStream;
 use std::io::Error as IoError;
 use std::str::FromStr;
@@ -73,16 +72,10 @@ fn main() {
         Ok(stream) => {
             println!("Connected.");
 
-            for line in stream.lines() {
-                match line {
-                    Ok(line) => {
-                        println!("{}", line);
-                    }
-                    Err(e) => { 
-                        println!("Read error: {}", e);
-                        break;
-                    }
-                }
+            let mut messages = irc::MessageStream::new(stream);
+
+            while let Ok(line) = messages.read_one() {
+                println!("{}", line);
             }
         }
         Err(e) => {
@@ -100,4 +93,26 @@ fn connect(hostname: &str, port: u16) -> Result<BufStream<TcpStream>, IoError> {
     let address = format!("{}:{}", hostname, port);
     let tcp_stream = try!(TcpStream::connect(&address[..]));
     return Ok(BufStream::new(tcp_stream));
+}
+
+mod irc {
+    use std::io::{BufRead, Error, Write};
+
+    pub struct MessageStream<S> {
+        inner: S
+    }
+
+    impl<S: BufRead + Write> MessageStream<S> {
+        pub fn new(inner: S) -> MessageStream<S> {
+            return MessageStream {
+                inner: inner
+            }
+        }
+
+        pub fn read_one(&mut self) -> Result<String, Error> {
+            let mut line = String::new();
+            try!(self.inner.read_line(&mut line));
+            return Ok(String::from_str(&line[..].trim()));
+        }
+    }
 }
