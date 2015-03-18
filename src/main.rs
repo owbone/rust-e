@@ -20,7 +20,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+#![feature(plugin)]
+#![plugin(regex_macros)]
+
 extern crate getopts;
+extern crate regex;
+
+mod irc;
 
 use getopts::Options;
 use std::env;
@@ -44,21 +50,21 @@ fn main() {
         Ok(m) => { m }
         Err(e) => {
             println!("Invalid address: {}", e);
-            return usage(&program[..], opts);
+            return usage(&program, opts);
         }
     };
 
     let hostname = match matches.opt_str("s") {
         Some(a) => { a }
-        None => { return usage(&program[..], opts); }
+        None => { return usage(&program, opts); }
     };
 
     let port = if let Some(p) = matches.opt_str("p") {
-        match u16::from_str(&p[..]) {
+        match u16::from_str(&p) {
             Ok(p) => { p }
             Err(e) => {
                 println!("Invalid port: {}", e);
-                return usage(&program[..], opts);
+                return usage(&program, opts);
             }
         }
     }
@@ -68,7 +74,7 @@ fn main() {
 
     println!("Connecting to {}:{}...", hostname, port);
 
-    match connect(&hostname[..], port) {
+    match tcp_connect(&hostname, port) {
         Ok(stream) => {
             println!("Connected.");
 
@@ -89,30 +95,9 @@ fn usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn connect(hostname: &str, port: u16) -> Result<BufStream<TcpStream>, IoError> {
+fn tcp_connect(hostname: &str, port: u16)
+               -> Result<BufStream<TcpStream>, IoError> {
     let address = format!("{}:{}", hostname, port);
     let tcp_stream = try!(TcpStream::connect(&address[..]));
     return Ok(BufStream::new(tcp_stream));
-}
-
-mod irc {
-    use std::io::{BufRead, Error, Write};
-
-    pub struct MessageStream<S> {
-        inner: S
-    }
-
-    impl<S: BufRead + Write> MessageStream<S> {
-        pub fn new(inner: S) -> MessageStream<S> {
-            return MessageStream {
-                inner: inner
-            }
-        }
-
-        pub fn read_one(&mut self) -> Result<String, Error> {
-            let mut line = String::new();
-            try!(self.inner.read_line(&mut line));
-            return Ok(String::from_str(&line[..].trim()));
-        }
-    }
 }
