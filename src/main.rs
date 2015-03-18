@@ -86,8 +86,7 @@ fn main() {
             }
         }
         Err(e) => {
-            println!("{}", e);
-            println!("Failed to connect!");
+            println!("Failed to connect: {}!", e);
         }
     }
 }
@@ -99,9 +98,6 @@ fn usage(program: &str, opts: Options) {
 
 fn connect(hostname: &str, port: u16) -> Result<BufStream<TcpStream>, IoError> {
     let address = format!("{}:{}", hostname, port);
-
-    match TcpStream::connect(&address[..]) {
-        Ok(stream) => { return Ok(BufStream::new(stream)); }
-        Err(e) => { return Err(e); }
-    };
+    let tcp_stream = try!(TcpStream::connect(&address[..]));
+    return Ok(BufStream::new(tcp_stream));
 }
