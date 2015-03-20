@@ -36,6 +36,8 @@ use std::io::Error as IoError;
 use std::str::FromStr;
 use std::net::TcpStream;
 
+type IrcStream = BufStream<TcpStream>;
+
 static DEFAULT_PORT_NUMBER: u16 = 6667;
 
 fn main() {
@@ -78,10 +80,16 @@ fn main() {
         Ok(stream) => {
             println!("Connected.");
 
-            let mut messages = irc::MessageStream::new(stream);
+            let mut message_stream = irc::MessageStream::new(stream);
 
-            while let Ok(line) = messages.read_one() {
-                println!("{}", line);
+            while let Ok(message) = message_stream.read_one() {
+                match message.command {
+                    irc::Command::Notice(params) => {
+                        println!("Notice @ {} : {}",
+                                 params.target,
+                                 params.message);
+                    }
+                }
             }
         }
         Err(e) => {
@@ -95,9 +103,8 @@ fn usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn tcp_connect(hostname: &str, port: u16)
-               -> Result<BufStream<TcpStream>, IoError> {
+fn tcp_connect(hostname: &str, port: u16) -> Result<IrcStream, IoError> {
     let address = format!("{}:{}", hostname, port);
     let tcp_stream = try!(TcpStream::connect(&address[..]));
-    return Ok(BufStream::new(tcp_stream));
+    Ok(BufStream::new(tcp_stream))
 }

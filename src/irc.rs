@@ -21,12 +21,32 @@
 // THE SOFTWARE.
 
 use regex::Regex;
-use std::io::{BufRead, Error, Write};
+use std::io::{BufRead, Write};
+use std::io::Error as IoError;
 
-static RE_MESSAGE: Regex = regex!(r"(:(?P<prefix>\S+) )?(?P<command>.+)");
+pub enum Error {
+    InvalidLine(String),
+    InvalidCommand(String),
+    InvalidParams(&'static str, String),
+    IoError(IoError),
+}
+
+pub enum Command {
+    Notice(NoticeParams),
+}
+
+pub struct NoticeParams {
+    pub target: String,
+    pub message: String,
+}
+
+pub struct Message {
+    pub prefix: Option<String>,
+    pub command: Command,
+}
 
 pub struct MessageStream<S> {
-    inner: S
+    inner: S,
 }
 
 impl<S: BufRead + Write> MessageStream<S> {
@@ -36,25 +56,90 @@ impl<S: BufRead + Write> MessageStream<S> {
         }
     }
 
-    pub fn read_one(&mut self) -> Result<String, Error> {
+    pub fn read_one(&mut self) -> Result<Message, Error> {
         let mut line = String::new();
-        try!(self.inner.read_line(&mut line));
+        if let Err(error) = self.inner.read_line(&mut line) {
+            return Err(Error::IoError(error));
+        }
+        self.parse_line(&line)
+    }
 
-        let mut message = String::new();
-        if let Some(captures) = RE_MESSAGE.captures(&line) {
-            if let Some(prefix) = captures.name("prefix") {
-                message.push_str(&format!("Prefix: \"{}\", ", prefix));
+    fn parse_line(&self, line: &str) -> Result<Message, Error> {
+        static RE: Regex = regex!(r"(?::(?P<prefix>\S+) )?(?P<command>.+)");
+
+        if let Some(captures) = RE.captures(&line) {
+            Ok(Message {
+                prefix: match captures.name("prefix") {
+                    Some(s) => { Some(s.to_string()) }
+                    None => { None }
+                },
+                command: match captures.name("command") {
+                    Some(s) => { 
+                        match self.parse_command(s) {
+                            Ok(c) => { c }
+                            Err(e) => { return Err(e); }
+                        }
+                    }
+                    None => { 
+                        return Err(Error::InvalidLine(line.to_string()));
+                    }
+                }
+            })
+        }
+        else {
+            Err(Error::InvalidLine(line.to_string()))
+        }
+    }
+
+    fn parse_command(&self, command: &str) -> Result<Command, Error> {
+        static RE: Regex = regex!(r"(?P<type>\S+)( (?P<params>.+))?");
+
+        if let Some(captures) = RE.captures(&command) {
+            if let Some(name) = captures.name("type") {
+                let params = captures.name("params").unwrap_or("");
+
+                match name {
+                    "NOTICE" => { self.parse_notice(params) }
+                    _ => { Err(Error::InvalidCommand(command.to_string())) }
+                }
             }
-            if let Some(command) = captures.name("command") {
-                message.push_str(&format!("Command: \"{}\"", command));
+            else {
+                Err(Error::InvalidCommand(command.to_string()))
             }
         }
         else {
-            // TODO: Error handling.
-            panic!("Parse failure!");
+            Err(Error::InvalidCommand(command.to_string()))
         }
+    }
 
-        return Ok(message);
+    fn parse_notice(&self, params: &str) -> Result<Command, Error> {
+        static RE: Regex = regex!(r"(?P<target>\S+) :?(?P<message>.*)");
+
+        if let Some(captures) = RE.captures(params) {
+            Ok(Command::Notice(NoticeParams {
+                target: match captures.name("target") {
+                    Some(target) => {
+                        target.to_string()
+                    }
+                    None => {
+                        return Err(Error::InvalidParams("NOTICE", 
+                                                        params.to_string()))
+                    }
+                },
+                message: match captures.name("message") {
+                    Some(message) => {
+                        message.to_string() 
+                    }
+                    None => { 
+                        return Err(Error::InvalidParams("NOTICE", 
+                                                        params.to_string())) 
+                    }
+                }
+            }))
+        }
+        else {
+            Err(Error::InvalidParams("NOTICE", params.to_string()))
+        }
     }
 }
 
