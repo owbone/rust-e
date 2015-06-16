@@ -69,10 +69,7 @@ impl<S: BufRead> MessageStream<S> {
 
         if let Some(captures) = re.captures(&line) {
             Ok(Message {
-                prefix: match captures.name("prefix") {
-                    Some(s) => { Some(s.to_string()) }
-                    None => { None }
-                },
+                prefix: captures.name("prefix").map(|s| s.to_string()),
                 command: match captures.name("command") {
                     Some(s) => {
                         match self.parse_command(s) {
