@@ -21,7 +21,7 @@
 // THE SOFTWARE.
 
 use regex::Regex;
-use std::io::{BufRead, Write};
+use std::io::{BufRead};
 use std::io::Error as IoError;
 
 pub enum Error {
@@ -49,7 +49,7 @@ pub struct MessageStream<S> {
     inner: S,
 }
 
-impl<S: BufRead + Write> MessageStream<S> {
+impl<S: BufRead> MessageStream<S> {
     pub fn new(inner: S) -> MessageStream<S> {
         return MessageStream {
             inner: inner

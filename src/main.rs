@@ -28,12 +28,12 @@ mod irc;
 use getopts::Options;
 use std::env;
 use std::iter::FromIterator;
-use std::io::BufStream;
+use  std::io::BufReader;
 use std::io::Error as IoError;
 use std::str::FromStr;
 use std::net::TcpStream;
 
-type IrcStream = BufStream<TcpStream>;
+type IrcStream = TcpStream;
 
 static DEFAULT_PORT_NUMBER: u16 = 6667;
 
@@ -77,7 +77,8 @@ fn main() {
         Ok(stream) => {
             println!("Connected.");
 
-            let mut message_stream = irc::MessageStream::new(stream);
+            let stream_buf = BufReader::new(stream);
+            let mut message_stream = irc::MessageStream::new(stream_buf);
 
             while let Ok(message) = message_stream.read_one() {
                 match message.command {
@@ -103,5 +104,5 @@ fn usage(program: &str, opts: Options) {
 fn tcp_connect(hostname: &str, port: u16) -> Result<IrcStream, IoError> {
     let address = format!("{}:{}", hostname, port);
     let tcp_stream = try!(TcpStream::connect(&address[..]));
-    Ok(BufStream::new(tcp_stream))
+    Ok(tcp_stream)
 }
