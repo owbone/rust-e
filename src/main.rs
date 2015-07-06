@@ -11,7 +11,7 @@
 //
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,9 +19,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
-#![feature(plugin)]
-#![plugin(regex_macros)]
 
 extern crate getopts;
 extern crate regex;
@@ -31,12 +28,12 @@ mod irc;
 use getopts::Options;
 use std::env;
 use std::iter::FromIterator;
-use std::io::BufStream;
+use  std::io::BufReader;
 use std::io::Error as IoError;
 use std::str::FromStr;
 use std::net::TcpStream;
 
-type IrcStream = BufStream<TcpStream>;
+type IrcStream = TcpStream;
 
 static DEFAULT_PORT_NUMBER: u16 = 6667;
 
@@ -80,7 +77,8 @@ fn main() {
         Ok(stream) => {
             println!("Connected.");
 
-            let mut message_stream = irc::MessageStream::new(stream);
+            let stream_buf = BufReader::new(stream);
+            let mut message_stream = irc::MessageStream::new(stream_buf);
 
             while let Ok(message) = message_stream.read_one() {
                 match message.command {
@@ -106,5 +104,5 @@ fn usage(program: &str, opts: Options) {
 fn tcp_connect(hostname: &str, port: u16) -> Result<IrcStream, IoError> {
     let address = format!("{}:{}", hostname, port);
     let tcp_stream = try!(TcpStream::connect(&address[..]));
-    Ok(BufStream::new(tcp_stream))
+    Ok(tcp_stream)
 }
