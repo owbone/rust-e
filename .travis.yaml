@@ -1,0 +1,7 @@
+language: rust
+rust:
+  - 1.1.0
+  - beta
+  - nightly
+notifications:
+  email: false
